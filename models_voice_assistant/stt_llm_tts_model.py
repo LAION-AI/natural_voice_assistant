@@ -2,7 +2,7 @@ import time
 import torch
 import numpy as np
 from copy import deepcopy
-from nemo_loader import load_rnnt_model
+from utils_voice_assistant.nemo_loader import load_rnnt_model
 from models_voice_assistant.TTS.style_tts2_model import StyleTTS2Model
 from transformers import AutoTokenizer, AutoModelForCausalLM
 

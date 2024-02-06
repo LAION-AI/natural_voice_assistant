@@ -4,8 +4,8 @@ import torch
 import pyaudio
 import multiprocessing
 import sounddevice as sd
-from preprocessor import Preprocessor
-from streaming_buffer import StreamBuffer
+from utils_voice_assistant.preprocessor import Preprocessor
+from utils_voice_assistant.streaming_buffer import StreamBuffer
 from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
 
