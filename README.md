@@ -8,8 +8,13 @@ BUD-E (Buddy for Understanding and Digital Empathy) is an open-source AI voice a
 4. handles multi-speaker conversations with interruptions, affirmations and thinking pauses
 5. runs fully local, on consumer hardware.
 
-This demo shows an interaction with the current version of BUD-E on an NVIDIA GTX 4090. []. 
-With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
+[This demo](https://youtu.be/SYWDucn8RL8) shows an interaction with the current version of BUD-E on an NVIDIA GTX 4090. With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
+
+## Quick Start
+1. Clone this repository and follow the installation guide in the readme.
+2. Start the voice assistant by running the *main.py* file in the repository root.
+3. Wait until "Listening.." is printed to the console and start speaking. 
+
 
 ## Roadmap
 Altough the conversations with the current version of BUD-E already feel quite natural, there are still a lot of components and features missing what we need to tackle on the way to a truly and naturally feeling voice assistant. The immediate open work packages we'd like to tackle are as follows:
@@ -38,7 +43,7 @@ Altough the conversations with the current version of BUD-E already feel quite n
 ### Enhancing multi-modal and emotional context understanding
 
 - [ ] *Incorporate visual input*. Use a light-weight but effective vision encoder (e.g., CLIP or a Captioning Model) to incorporate static image and/or video input.
-- [ ] *Continuous vision-audio responses*. Similar to the (not genuine) Gemini demo [LINK] it would be great if BUD-E would naturally and continuously take into account audio and vision inputs and flexibly respond in a natural manner just like humans.
+- [ ] *Continuous vision-audio responses*. Similar to the (not genuine) [Gemini demo](https://www.youtube.com/watch?v=UIZAiXYceBI) it would be great if BUD-E would naturally and continuously take into account audio and vision inputs and flexibly respond in a natural manner just like humans.
 - [ ] *Evaluate user emotions*. Capture webcam images from the user to determine the user’s emotional state and incorporate this in the response. This could be an extension of training on dialogues from video platforms, using training samples where the speaker’s face is well visible.
 
 ### Building a UI, CI  and easy packaging infrastructure
