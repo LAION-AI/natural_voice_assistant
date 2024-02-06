@@ -102,3 +102,8 @@ class StreamBuffer():
                 stream_id, :, self.streams_length[stream_id] : self.streams_length[stream_id] + processed_signal_length
             ] = processed_signal
             self.streams_length[stream_id] = self.streams_length[stream_id] + processed_signal.size(-1)
+
+    def reset_buffer(self):
+        self.buffer = None
+        self.buffer_idx = 0
+        self.streams_length = None

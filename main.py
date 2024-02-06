@@ -76,7 +76,8 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
     start_recording.value = 1
 
     # control buffer stream id for first chunk 
-    first = True
+    first_chunk = True
+    first_response = True
 
     # start main loop
     while True:
@@ -85,9 +86,9 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
         # and the inner loop breaks
         while True:
             # select stream id (-1) for first chunk (0) else
-            if first:
+            if first_chunk:
                 stream_id = -1
-                first = False
+                first_chunk = False
             else:
                 stream_id = 0
 
@@ -125,6 +126,13 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
         else:
             # --> not enough chunks. Call model with empty input to generate text
             text, wav, interrupt = model(None, None)
+
+        # clear buffer when receiving the first response from the model to delete every audio that was 
+        # recorded before the model was fully initialized
+        if first_response:
+            first_response = False
+            streaming_buffer.reset_buffer()
+            first_chunk = True
 
         # TODO: Implement interrup behavior to stop audio process when user starts speaking
 
