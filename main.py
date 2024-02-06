@@ -76,7 +76,8 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
     start_recording.value = 1
 
     # control buffer stream id for first chunk 
-    first = True
+    first_chunk = True
+    first_response = True
 
     # start main loop
     while True:
@@ -85,9 +86,9 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
         # and the inner loop breaks
         while True:
             # select stream id (-1) for first chunk (0) else
-            if first:
+            if first_chunk:
                 stream_id = -1
-                first = False
+                first_chunk = False
             else:
                 stream_id = 0
 
@@ -121,20 +122,29 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
             # call model and pass preprocessed audio data
             chunk_audio = chunk_audio.to("cuda")
             chunk_lengths = chunk_lengths.to("cuda")
-            text, wav, interrupt = model(chunk_audio, chunk_lengths) 
+            response = model(chunk_audio, chunk_lengths) 
         else:
             # --> not enough chunks. Call model with empty input to generate text
-            text, wav, interrupt = model(None, None)
+            response = model(None, None)
+
+        if first_response:
+            streaming_buffer.reset_buffer()
+            first_response = False
+            first_chunk = True
+
+        print("INPUT: ", response.input)
+        print("OUTPUT: ", response.response.replace("\n", ""))
 
         # TODO: Implement interrup behavior to stop audio process when user starts speaking
 
         # model return is None except when a new sentence is generated and synthesized 
-        if text is not None:
+        if response.finished:
             # --> A new sentence is finished
-            print(text.replace("\n", ""))
+            print("INPUT: ", response.input)
+            print("OUTPUT: ", response.response.replace("\n", ""))
 
             # Put synthesized audio to output buffer which will be played by the play-audio process
-            audio_output_buffer.put(wav)
+            audio_output_buffer.put(response.speech)
         
         time.sleep(0.001) # TODO Is this really needed?
                 
