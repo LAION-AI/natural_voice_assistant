@@ -1,8 +1,8 @@
 from omegaconf import DictConfig, OmegaConf, errors as omegaconf_errors
 from pytorch_lightning import LightningModule
-from conformer_encoder import ConformerEncoder
-from rnnt_decoder import RNNTDecoder
-from rnnt_joint import RNNTJoint
+from .conformer_encoder import ConformerEncoder
+from .rnnt_decoder import RNNTDecoder
+from .rnnt_joint import RNNTJoint
 import copy
 
 """

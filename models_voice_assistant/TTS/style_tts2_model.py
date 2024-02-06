@@ -21,7 +21,7 @@ Wrapper to use the StyleTTS2 model and downloading the necessary weights and con
 """
 
 class StyleTTS2Model(torch.nn.Module):
-    def __init__(self, styleTTS2_repo_path="StyleTTS2", device="cuda") -> None:
+    def __init__(self, styleTTS2_repo_path="models_voice_assistant/TTS/StyleTTS2", device="cuda") -> None:
         """Initialize StyleTTS2 model for text sythesizing. StyleTTS2 repository have to be cloned locally and
            a valid path to the repo have to be passed
         Args:

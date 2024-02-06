@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 from pathlib import Path 
 from omegaconf import DictConfig, OmegaConf
-from enc_dec_rnnt_model import EncDecRNNTModel
+from models_voice_assistant.STT.enc_dec_rnnt_model import EncDecRNNTModel
 
 """
 Utility methods from the nemo-toolkit to download and use checkpoints from the NGC cloud

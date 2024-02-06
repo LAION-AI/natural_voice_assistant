@@ -6,7 +6,7 @@ import multiprocessing
 import sounddevice as sd
 from preprocessor import Preprocessor
 from streaming_buffer import StreamBuffer
-from stt_llm_tts_model import STT_LLM_TTS
+from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
 
 def record(audio_buffer, start_recording):

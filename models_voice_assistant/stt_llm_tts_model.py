@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from copy import deepcopy
 from nemo_loader import load_rnnt_model
-from style_tts2_model import StyleTTS2Model
+from models_voice_assistant.TTS.style_tts2_model import StyleTTS2Model
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 VERBOSE = False
