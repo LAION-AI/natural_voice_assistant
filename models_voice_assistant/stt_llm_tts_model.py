@@ -8,7 +8,7 @@ from utils_voice_assistant.nemo_loader import load_rnnt_model
 from models_voice_assistant.TTS.style_tts2_model import StyleTTS2Model
 
 
-VERBOSE = False
+VERBOSE = True
 
 class STT(torch.nn.Module):
     # Constants or FastConformer RNNT model
@@ -353,7 +353,7 @@ class TTS(torch.nn.Module):
  
 class STT_LLM_TTS(torch.nn.Module):
     
-    THRESHOLD_VOICE_DETECTION  = -31000
+    THRESHOLD_VOICE_DETECTION  = -30000
     
     def __init__(self, device):
         """Initialize STT, LLM and TTS model and the state of the voice assistant 
@@ -391,7 +391,6 @@ class STT_LLM_TTS(torch.nn.Module):
         self.current_id = 0
         self.current_response = VoiceAssistantResponse(id = 0)
         
-
     def forward(self, processed_signal, processed_signal_length):
         """Perform a single voice assistant forward path
            1) If a processed signal is passed and speech is detected, the audio chunk is transcribed
@@ -471,9 +470,11 @@ class STT_LLM_TTS(torch.nn.Module):
                     # stop transcription after certain time until LLM generation is finished
                     # TODO disable STT right at the beginning and handle interrupts by amplitude in audio input
                     if self.transcribing:
-                        if VERBOSE:
-                            print("[Stop transcribing!]")
-                        self.transcribing = False
+                        # TODO Currently disabled.. This was causing problems
+                        # if VERBOSE:
+                        #     print("[Stop transcribing!]")
+                        # self.transcribing = False
+                        pass
 
                     # Start token generation
                     if not self.generating:
@@ -563,21 +564,19 @@ class STT_LLM_TTS(torch.nn.Module):
                             self.current_word = ""
                             self.transcribing = True
                             self.last_token_timestep = None
-                            
-                            # detokenize current sentence 
-                            response = self.llm.detokenize(self.response_sentence)
-                            
-                            # reset sentence and sequenc 
-                            self.response_sequence = []
-                            self.response_sentence = []
-                            response = "".join(response)
 
+                           
+         
                             # Sometimes the previous sentence was already the end of the sequence but the EOS
                             # token is generated after the end of sentence token. If the sequence ends but the current
                             # sentence is too short, nothing is returned and no speech is synthesized
-                            if len(response) > 3:
+                            if len(self.response_sentence) > 3:
                                 # synthesize generated sequence
-                                wav = self.tts(response)
+                                wav = self.tts(self.current_response.response)
+
+                                # reset sentence and sequenc 
+                                self.response_sequence = []
+                                self.response_sentence = []
 
                                 # calculate and print latency
                                 latency = time.time()-self.start_generation_timestep
@@ -587,8 +586,17 @@ class STT_LLM_TTS(torch.nn.Module):
                                 self.current_response.speech = wav
                                 self.current_response.finished = True
 
-                                return self.current_response
+                                ret_response = deepcopy(self.current_response)
+                                self.current_id += 1
+                                self.current_response = VoiceAssistantResponse(id = self.current_id)
+
+                                return ret_response
                             else:
+                                 # reset sentence and sequenc 
+                                self.response_sequence = []
+                                self.response_sentence = []
+                                self.current_id += 1
+                                self.current_response = VoiceAssistantResponse(id = self.current_id)
                                 self.start_generation_timestep = None
                 else:
                     # --> not in generation mode handle new transcribed token 

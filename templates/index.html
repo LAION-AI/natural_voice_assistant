@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='all.min.css') }}">
+<title>Response Handling Example</title>
+</head>
+<body>
+  <div style="background-color: white;width:100vw;margin-top:0;">
+    <div style="max-width: 500px; margin: 0 auto !important; float: none !important;padding-top:20px;padding-bottom:30px;font-family: 'Poppins', sans-serif;font-weight: 400;">
+      <div style="width:150px;padding-top:40px;display:flex;max-width: 500px;">
+      </div>
+      <br>
+      <h1>BUD-E User Interface Demo</h1>
+      <br>
+    </div>
+<div>
+  <!-- This container will hold the dynamically added text elements -->
+  <center>
+    <div id="main-wrapper" class="message-wrapper" style="max-width: 500px;"></div>
+</div>
+
+<script>
+  let lastId = null; // Variable to store the last received id
+  let currentInputElement = null; // Variable to keep track of the current input text element
+  let currentResponseElement = null; // Variable to keep track of the current response text element
+  let responseAddedForCurrentId = false; // Flag to indicate if a response element has been added for the current ID
+
+  // Function to fetch data from "/test" route
+  const fetchData = async () => {
+    try {
+      const response = await fetch('/test'); // Make a fetch request to "/test"
+      if (response.ok) { // Check if the response is ok
+        const data = await response.json(); // Parse the response body as JSON
+        processFetchedData(data); // Process the fetched data
+      } else {
+        console.error('Failed to fetch data:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  // Function to process the fetched data
+  const processFetchedData = (data) => {
+    if (data.id !== lastId) {
+      if (data.input !== "") {
+        lastId = data.id; // Update lastId with the new one
+        responseAddedForCurrentId = false; // Reset the flag since the id is new
+        addInputElement(data.input); // Add a new input text element
+      }
+    } else {
+      if (data.input !== "") {
+        updateOrAddInputElement(data.input); // Update the existing input text element or add if not exists
+      }
+
+      if (data.response !== "" && !responseAddedForCurrentId) {
+        addResponseElement(data.response); // Add a new response text element
+        responseAddedForCurrentId = true; // Set the flag to true after adding the response element
+      } else if (data.response !== "") {
+        updateResponseElement(data.response); // Update the existing response text element
+      }
+    }
+  };
+
+  // Function to add or update the input text element
+  const addInputElement = (input) => {
+    const container = document.getElementById('main-wrapper');
+    
+    var avatar_container = document.createElement("div");
+    avatar_container.className = "avatar-container";
+
+    var avatar_img = document.createElement("div");
+    avatar_img.innerHTML = "<img class='avatar' src='{{ url_for('static', filename='profile.png') }}' \>";
+
+    var avatar_name = document.createElement("div");
+    avatar_name.className = "avatar-name";
+    avatar_name.innerHTML = "Alex";
+
+    var text_container = document.createElement("div");
+    text_container.className = "text-container";
+    text_container.style.maxWidth = "500px";
+    text_container.innerHTML = "<p>" + input + "</p>";
+
+    avatar_container.appendChild(avatar_img);
+    avatar_container.appendChild(avatar_name);
+    avatar_container.appendChild(text_container);
+
+
+    currentInputElement = text_container; // Keep track of the current input element
+
+    container.appendChild(avatar_container);    
+  };
+
+  const updateOrAddInputElement = (input) => {
+    if (!currentInputElement) {
+      addInputElement(input);
+    } else {
+      currentInputElement.innerHTML = "<p>" + input + "</p>";
+    }
+  };
+
+  // Function to add a new response text element
+  const addResponseElement = (response) => {
+
+    const container = document.getElementById('main-wrapper');
+    
+    var avatar_container = document.createElement("div");
+    avatar_container.className = "avatar-container";
+
+    var avatar_img = document.createElement("div");
+    avatar_img.innerHTML = "<img class='avatar' src='{{ url_for('static', filename='Phi.svg') }}' \>";
+
+    var avatar_name = document.createElement("div");
+    avatar_name.className = "avatar-name";
+    avatar_name.innerHTML = "Phi-2";
+
+    var text_container = document.createElement("div");
+    text_container.className = "text-container";
+    text_container.style.maxWidth = "500px";
+    text_container.innerHTML = "<p>" + response + "</p>";
+
+    avatar_container.appendChild(avatar_img);
+    avatar_container.appendChild(avatar_name);
+    avatar_container.appendChild(text_container);
+
+
+    currentResponseElement = text_container; // Keep track of the current input element
+
+
+    container.appendChild(avatar_container);
+
+  };
+
+  // Function to update the existing response text element
+  const updateResponseElement = (response) => {
+    if (currentResponseElement) {
+      currentResponseElement.innerHTML = "<p>" + response + "</p>";
+    }
+  };
+
+  // Call fetchData every 5 seconds to check for new data
+  setInterval(fetchData, 50);
+</script>
+</body>
+</html>

@@ -8,6 +8,35 @@ from utils_voice_assistant.preprocessor import Preprocessor
 from utils_voice_assistant.streaming_buffer import StreamBuffer
 from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
+import threading
+
+from flask import Flask, render_template, jsonify
+
+app = Flask(__name__)
+prev_response = None
+
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/test')
+def get_counter():
+    if prev_response is not None:
+        print( prev_response.id, prev_response.input)
+        return jsonify(id = prev_response.id, input=prev_response.input, response = prev_response.response)
+    else:
+        return jsonify(id = -1, input="", response="")
+
+def start_ui():
+    app.run(debug=True, use_reloader=False, port=5000)
+    try:
+        while True:
+            time.sleep(0.1)  # Your main thread can continue doing other things
+    except KeyboardInterrupt:
+        print("Main thread interrupted and exiting...")
+
+
 
 def record(audio_buffer, start_recording):
     """Record an audio stream from the microphone in a separate process  
@@ -132,16 +161,19 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
             first_response = False
             first_chunk = True
 
-        print("INPUT: ", response.input)
-        print("OUTPUT: ", response.response.replace("\n", ""))
+        # print("INPUT: ", response.input)
+        # print("OUTPUT: ", response.response.replace("\n", ""))
+        global prev_response
+        prev_response = response
+
 
         # TODO: Implement interrup behavior to stop audio process when user starts speaking
 
         # model return is None except when a new sentence is generated and synthesized 
         if response.finished:
             # --> A new sentence is finished
-            print("INPUT: ", response.input)
-            print("OUTPUT: ", response.response.replace("\n", ""))
+            # print("INPUT: ", response.input)
+            # print("OUTPUT: ", response.response.replace("\n", ""))
 
             # Put synthesized audio to output buffer which will be played by the play-audio process
             audio_output_buffer.put(response.speech)
@@ -153,6 +185,10 @@ def main():
     """
     # !! Make sure to start multiprocessing before using any pytorch tensors to prevent GPU memory problems !! 
 
+    #start_ui()
+    ui_thread = threading.Thread(target=start_ui, daemon=True)
+    ui_thread.start()
+
     # start multiprocesses for sound input
     audio_buffer = multiprocessing.Queue() 
     start_recording = multiprocessing.Value('i', 0)
@@ -163,6 +199,8 @@ def main():
     audio_output_buffer = multiprocessing.Queue()
     play_audio_process = multiprocessing.Process(target=play_audio, args=(audio_output_buffer,))
     play_audio_process.start()
+
+    
 
     # initialize buffer for processed audio input
     streaming_buffer = StreamBuffer(chunk_size=16, shift_size=16)
