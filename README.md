@@ -39,6 +39,7 @@ Altough the conversations with the current version of BUD-E already feel quite n
 ### Increasing Naturalness of Speech and Responses
 
 - [ ] *Dataset of natural human dialogues*. Build a dataset (e.g., Youtube, Mediathek, etc.) with recorded dialogues between two or more humans for fine-tuning BUD-E.
+- [ ] *Reliable speaker-diarization*. Develop a reliable speaker-diarization system that can separate speakers, including utterances and affirmations that might overlap between speakers.
 - [ ] *Fine-tune on dialogues*. Finetune STT -> LLM -> TTS pipeline on natural human dialogues to allow the model to respond similarly to humans, including interruptions and utterances.
 
 ### Keeping track of conversations over days, months and years
