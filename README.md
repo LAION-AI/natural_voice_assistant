@@ -10,12 +10,12 @@ BUD-E (Buddy for Understanding and Digital Empathy) is an open-source AI voice a
 
 This project is a collaboration between LAION, the ELLIS Institute Tübingen, Collabora and the Tübingen AI Center.
 
-<p align="center", style="margin-top:30px; margin-bottom:30px;">
-  
-  <a href="https://laion.ai/"> <img src="icons/laion.png" alt="Image 1" width="110" style="padding-right:10px;"/></a>
-  <a href="https://institute-tue.ellis.eu/"><img src="icons/ellis.jpg" alt="Image 2" width="250" style="padding-left:10px; padding-right:10px;"/></a>
-  <a href="https://www.collabora.com/"><img src="icons/collabora.png" alt="Image 3" width="200" style="padding-left:10px; padding-right:10px;"/></a>
-  <a href="https://tuebingen.ai/"><img src="icons/Tuebingen_AI_Center.png" alt="Image 4" width="130" style="padding-left:20px;"/></a>
+<p align="center", style="margin-top:30px;">
+  <a href="https://laion.ai/"> <img src="icons/laion.png" alt="Image 1" width="110" style="padding:20;"/></a>
+  <a href="https://institute-tue.ellis.eu/"><img src="icons/ellis.jpg" alt="Image 2" width="250" style="padding:20px;"/></a>
+  <a href="https://www.collabora.com/"><img src="icons/collabora.png" alt="Image 3" width="200" style="paddin:20px; margin-bottom:15px;"/></a>
+  <a href="https://tuebingen.ai/"><img src="icons/Tuebingen_AI_Center.png" alt="Image 4" width="130" style="padding:20px;"/></a>
+
 </p>
 
 [This demo](https://youtu.be/SYWDucn8RL8) shows an interaction with the current version of BUD-E on an NVIDIA GTX 4090. With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
