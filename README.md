@@ -14,7 +14,7 @@ This project is a collaboration between LAION, the ELLIS Institute Tübingen, Co
   <a href="https://laion.ai/"> <img src="icons/laion.png" alt="Image 1" width="110" style="padding:20;"/></a>
   <a href="https://institute-tue.ellis.eu/"><img src="icons/ellis.jpg" alt="Image 2" width="250" style="padding:20px;"/></a>
   <a href="https://www.collabora.com/"><img src="icons/collabora.png" alt="Image 3" width="200" style="paddin:20px; margin-bottom:15px;"/></a>
-  <a href="https://tuebingen.ai/"><img src="icons/Tuebingen_AI_Center.png" alt="Image 4" width="130" style="padding:20px;"/></a>
+  <a href="https://tuebingen.ai/"><img src="icons/Tuebingen_AI_Center.png" alt="Image 4" width="130" style="padding:20px; margin-left:15px;"/></a>
 
 </p>
 

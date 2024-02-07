@@ -13,6 +13,7 @@ from munch import Munch
 from text_utils import TextCleaner
 from contextlib import contextmanager
 from nltk.tokenize import word_tokenize
+import nltk
 from Utils.PLBERT.util import load_plbert
 from Modules.diffusion.sampler import DiffusionSampler, ADPM2Sampler, KarrasSchedule
 
@@ -32,6 +33,9 @@ class StyleTTS2Model(torch.nn.Module):
         super(StyleTTS2Model, self).__init__()
 
         self.device = device
+
+        # download punkt tokenizer (if missing)
+        nltk.download('punkt')
 
         # setup text cleaner, phonemizer, and noise for inference
         self.textclenaer = TextCleaner()
