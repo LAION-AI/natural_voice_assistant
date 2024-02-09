@@ -16,7 +16,7 @@ def record(audio_buffer, start_recording):
             start_recording: multiprocessing value to start and stop the recording
     """
     RATE = 16000
-    CHUNK = 2048
+    CHUNK = 1024
 
     # Open audio input stream
     audio = pyaudio.PyAudio()

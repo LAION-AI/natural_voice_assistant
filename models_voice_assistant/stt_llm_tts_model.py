@@ -6,6 +6,9 @@ from utils_voice_assistant.nemo_loader import load_rnnt_model
 from models_voice_assistant.TTS.style_tts2_model import StyleTTS2Model
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
+import json
+
+
 VERBOSE = False
 
 class STT(torch.nn.Module):
@@ -351,7 +354,7 @@ class TTS(torch.nn.Module):
  
 class STT_LLM_TTS(torch.nn.Module):
     
-    THRESHOLD_VOICE_DETECTION  = -31000
+    THRESHOLD_VOICE_DETECTION  = -30000
     
     def __init__(self, device):
         """Initialize STT, LLM and TTS model and the state of the voice assistant 
@@ -385,7 +388,181 @@ class STT_LLM_TTS(torch.nn.Module):
         self.response_sentence = []
         self.transcribing = True 
         self.last_return = None
+        self.no_speech_count = 0
 
+        # Tracking latencies
+        self.INIT_TIME = time.time()
+        self.times_stt = []
+        self.times_llm = []
+        self.times_start = []
+        self.times_interrupt = []
+        self.times_tts = []
+
+    def call_LLM(self, input, reason, tokenize=True, ignore_output=False):
+        if tokenize:
+            s = time.time()
+            tokens = self.llm.tokenize(input)
+            #print("####### Tokenize: ", round(time.time()-s,3))
+            for t in tokens[0]:
+                t_start = time.time()
+                t = torch.unsqueeze(torch.unsqueeze(t, 0),0)
+                last_token, past_key_values = self.llm(t, self.past_key_values, len(self.response_sequence))
+
+                t_end = time.time()
+                if VERBOSE:
+                    print(" -LLM ("+reason+")", round(t_end-t_start,3))
+                self.times_llm.append({"start":t_start-self.INIT_TIME, "end":t_end-self.INIT_TIME, "reason":reason})
+
+                if ignore_output == False:
+                    self.last_token = last_token
+                    self.past_key_values = past_key_values
+        else:
+            t_start = time.time()
+            last_token, past_key_values = self.llm(input, self.past_key_values, len(self.response_sequence))
+            t_end = time.time()
+            if VERBOSE:
+                print(" -LLM ("+reason+")", round(t_end-t_start,3))
+            self.times_llm.append({"start":t_start-self.INIT_TIME, "end":t_end-self.INIT_TIME, "reason":reason})
+
+            if ignore_output == False:
+                self.last_token = last_token
+                self.past_key_values = past_key_values
+        
+    def call_STT(self, processed_signal, processed_signal_length):
+        t_start = time.time()
+
+        # Call STT model to transcribe the given audio chunk
+        y_sequence = self.stt(processed_signal, processed_signal_length)
+        y_sequence = list(y_sequence.cpu().numpy())
+
+        # Select new tokens and add them to the current sequence. new_tokens can alls be empty
+        # if no word or subword could be detected in the chunk 
+        new_tokens = y_sequence[len(self.transcribed_tokens):]
+        self.transcribed_tokens += new_tokens
+
+        # trascribe new token to text
+        transcribed_text = self.stt.tokens_to_text(new_tokens)
+        t_end = time.time()
+        if VERBOSE:
+            print(" -STT: ",transcribed_text, round(t_end-t_start,3))
+        speech_detected = not transcribed_text==""
+        self.times_stt.append({"start":t_start-self.INIT_TIME, "end":t_end-self.INIT_TIME, "transcribed":speech_detected})
+
+        return transcribed_text
+
+    def handle_transcription(self, transcribed_text):
+
+        if len(transcribed_text)>0:
+            # reset timer for last recognized word / subword
+            self.last_token_timestep = time.time()
+            print(transcribed_text)
+
+        # First STT run is very slow, show Start prompt afterwards and add format tokens to LLM
+        if self.first:
+            self.first = False
+            print("\n\n ## Listening... ")
+
+            # Add format token
+            # TODO precompute this earlier
+            self.call_LLM(input="\nInstruct:", reason="format", tokenize=True)
+
+        if (len(transcribed_text) == 0 or transcribed_text.startswith(" ")) and len(self.current_word)>0:
+            # --> new word
+            new_word = self.current_word
+            self.transcribed_words.append(new_word)
+            self.current_word = transcribed_text
+            self.counter = 0
+
+            # call LLM to process new input token
+            self.call_LLM(input=new_word, reason="input", tokenize=True)
+        
+        # if new token is just a subword, add it to the current word
+        else:
+            self.current_word += transcribed_text
+
+    def reset_sentence(self):
+        # only reset current sentence not the entire response sequence
+        self.response_sentence = []
+        # reset timer 
+        self.start_generation_timestep = time.time()
+
+    def reset_sequence(self):
+        self.first = True
+        self.generating = False
+        self.current_word = ""
+        self.transcribing = True
+        self.last_token_timestep = None
+        # reset sentence and sequenc 
+        self.response_sequence = []
+        self.response_sentence = []
+        self.start_generation_timestep = None
+
+    def handle_stop_conditions(self):
+        end_of_sentence = self.last_token.eq(self.llm.sentence_stop_token_id_tensor)
+        end_of_sequence = self.last_token.eq(self.llm.eos_token_id_tensor)
+
+        end = False
+        wav = None
+        response = None
+
+        if end_of_sentence or len(self.response_sentence)>=50:
+            # --> End of Sentence
+            if time.time() - self.last_token_timestep > 0.3:
+                end = True
+                response = self.llm.detokenize(self.response_sentence)
+                response = "".join(response)
+
+                # synthesize generated sequence
+                t_start_tts = time.time()
+                wav = self.tts(response)
+                self.times_tts.append({"start":t_start_tts-self.INIT_TIME, "end":time.time()-self.INIT_TIME})
+
+                # calculate and print latency
+                latency = time.time()-self.start_generation_timestep
+                print("## Total Latency: ", round(latency,3))
+
+                with open('latencies/times_stt', 'w') as fout:
+                    json.dump(self.times_stt, fout)
+                with open('latencies/times_llm', 'w') as fout:
+                    json.dump(self.times_llm, fout)
+                with open('latencies/times_start', 'w') as fout:
+                    json.dump(self.times_start, fout)
+                with open('latencies/times_interrupt', 'w') as fout:
+                    json.dump(self.times_interrupt, fout)
+                with open('latencies/times_tts', 'w') as fout:
+                    json.dump(self.times_tts, fout)
+
+                self.reset_sentence()
+                
+        if end_of_sequence:
+            # --> End of Sequence  
+
+            # This if statement prevents the assistant to return a sequence to early when the user is
+            # still speaking TODO find a better solution to deal with early eos tokens
+            if time.time() - self.last_token_timestep > 0.3:
+                # reset state of the voice assistnat (but keep key-value cache for context)
+                
+                # detokenize current sentence 
+                response = self.llm.detokenize(self.response_sentence)
+                response = "".join(response)
+
+                # Sometimes the previous sentence was already the end of the sequence but the EOS
+                # token is generated after the end of sentence token. If the sequence ends but the current
+                # sentence is too short, nothing is returned and no speech is synthesized
+                if len(response) > 3:
+                    end = True
+                    # synthesize generated sequence
+                    wav = self.tts(response)
+
+                    # calculate and print latency
+                    latency = time.time()-self.start_generation_timestep
+                    print("## Total Latency: ", round(latency,3))
+                    
+                self.reset_sequence()
+
+        return end, response, wav
+  
+    
     def forward(self, processed_signal, processed_signal_length):
         """Perform a single voice assistant forward path
            1) If a processed signal is passed and speech is detected, the audio chunk is transcribed
@@ -401,31 +578,21 @@ class STT_LLM_TTS(torch.nn.Module):
             else: return None
         """
         with torch.inference_mode():
-            with torch.no_grad():
-                
+            with torch.no_grad(): 
                 transcribed_text = ""
                 if processed_signal is not None:
                     ## Detect voice to activate transcription
-                    if not self.transcribing and torch.sum(processed_signal).item() > self.THRESHOLD_VOICE_DETECTION:
+                    signal_strength = torch.sum(processed_signal).item()
+                    #print(signal_strength)
+                    if signal_strength > self.THRESHOLD_VOICE_DETECTION:
                         self.transcribing = True
+                        self.no_speech_count = 0
+                    else:
+                        self.no_speech_count += 1
 
                     ## Speech to text
                     if  self.transcribing:
-                        s = time.time()
-
-                        # Call STT model to transcribe the given audio chunk
-                        y_sequence = self.stt(processed_signal, processed_signal_length)
-                        y_sequence = list(y_sequence.cpu().numpy())
-
-                        # Select new tokens and add them to the current sequence. new_tokens can alls be empty
-                        # if no word or subword could be detected in the chunk 
-                        new_tokens = y_sequence[len(self.transcribed_tokens):]
-                        self.transcribed_tokens += new_tokens
-
-                        # trascribe new token to text
-                        transcribed_text = self.stt.tokens_to_text(new_tokens)
-                        if VERBOSE:
-                            print(" -STT: ",transcribed_text, round(time.time()-s,3))
+                        transcribed_text = self.call_STT(processed_signal, processed_signal_length)
 
                 # Handle Interrupt when generating but user continues speaking
                 if self.generating and len(transcribed_text)>0:
@@ -440,6 +607,7 @@ class STT_LLM_TTS(torch.nn.Module):
                         # reset generated sentence and whole generated sequence
                         self.response_sequence = [] 
                         self.response_sentence = []
+                        self.times_interrupt.append({"start":time.time()-self.INIT_TIME})
                     else:
                         # --> Interrupt
                         # reset state of voice assistant entirely TODO: find better solution
@@ -450,9 +618,9 @@ class STT_LLM_TTS(torch.nn.Module):
                         self.response_sequence = []
                         self.current_word = ""
                         self.transcribing = True
-                        backup = self.start_generation_timestep 
                         self.last_token_timestep = None
                         self.start_generation_timestep = None
+                        self.times_interrupt.append({"start":time.time()-self.INIT_TIME})
 
                         return None, None, True
                 
@@ -460,7 +628,7 @@ class STT_LLM_TTS(torch.nn.Module):
                 if self.last_token_timestep is not None and not self.first and len(transcribed_text)==0:
                     # stop transcription after certain time until LLM generation is finished
                     # TODO disable STT right at the beginning and handle interrupts by amplitude in audio input
-                    if self.transcribing:
+                    if self.transcribing and self.no_speech_count>1:
                         if VERBOSE:
                             print("[Stop transcribing!]")
                         self.transcribing = False
@@ -471,152 +639,41 @@ class STT_LLM_TTS(torch.nn.Module):
                         # backup key-value chache to restore it in case on an interrupt
                         self.past_key_values_backup = deepcopy(self.past_key_values)
                         self.start_generation_timestep = time.time()
-
+                        self.times_start.append({"start":self.start_generation_timestep-self.INIT_TIME})
                         if VERBOSE:
                             print("\n\n[START] ", round(time.time()-self.last_token_timestep,3))
 
                         # pass the remaining words / subwords of the input sequence to the LLM
                         if self.current_word != "":
-                            tokens = self.llm.tokenize(self.current_word)
-                            for t in tokens[0]:
-                                t = torch.unsqueeze(torch.unsqueeze(t, 0),0)
-                                s = time.time()
-                                self.last_token, self.past_key_values = self.llm(t, self.past_key_values, len(self.response_sequence))
-                                if VERBOSE:
-                                    print(" -LLM (Input): ", round(time.time()-s,3))
-
+                            self.call_LLM(input=self.current_word, reason="input", tokenize=True)
+                        
                         # Add format tokens 
                         # TODO calculate key value cache earlier and use it here to save inference time
-                        tokens = self.llm.tokenize("\nOutput:")
-                        for t in tokens[0]:
-                            t = torch.unsqueeze(torch.unsqueeze(t, 0),0)
-                            s = time.time()
-                            self.last_token, self.past_key_values = self.llm(t, self.past_key_values, len(self.response_sequence))
-                            if VERBOSE:
-                                print(" -LLM (Format): ", round(time.time()-s,3))
-                        self.last_token = self.llm.tokenize(" ")
+                        self.call_LLM(input="\nOutput:", reason="format", tokenize=True)
+                        self.response_sequence.append(self.last_token)
+                        self.response_sentence.append(self.last_token)
                 
                 # LLM generates a new token and adds it to the response sequence
                 if self.generating:
-                    s = time.time()
-                    self.last_token, self.past_key_values = self.llm(self.last_token, self.past_key_values, len(self.response_sequence))
-                    if VERBOSE:
-                        print(" -LLM (Generation): ", round(time.time()-s,3))
+                    self.last_token = torch.unsqueeze(self.last_token, 0)
+                    self.call_LLM(input=self.last_token, reason="generating", tokenize=False)
                     self.response_sequence.append(self.last_token)
                     self.response_sentence.append(self.last_token)
-                    self.last_token = torch.unsqueeze(self.last_token, 0)
-
+                    
                     # check for stopping conditions
                     # TODO improve check for end of sentence or end of sequence
-                    end_of_sentence = self.last_token.eq(self.llm.sentence_stop_token_id_tensor)
-                    end_of_sequence = self.last_token.eq(self.llm.eos_token_id_tensor)
-
-                    if end_of_sentence or len(self.response_sentence)>=50:
-                        # --> End of Sentence
-                        if time.time() - self.last_token_timestep > 0.3:
-                            response = self.llm.detokenize(self.response_sentence)
-                            response = "".join(response)
-
-                            # only reset current sentence not the entire response sequence
-                            self.response_sentence = []  
-                            
-                            # synthesize generated sequence
-                            wav = self.tts(response)
-
-                            # calculate and print latency
-                            latency = time.time()-self.start_generation_timestep
-                            print("## Total Latency: ", round(latency,3))
-
-                            # reset timer 
-                            self.start_generation_timestep = time.time()
-
-                            # return generated sentence and timestep for time measurement 
-                            return response, wav, False
-
-                    if end_of_sequence:
-                        # --> End of Sequence  
-
-                        # This if statement prevents the assistant to return a sequence to early when the user is
-                        # still speaking TODO find a better solution to deal with early eos tokens
-                        if time.time() - self.last_token_timestep > 0.3:
-                            # reset state of the voice assistnat (but keep key-value cache for context)
-                            self.first = True
-                            self.generating = False
-                            self.current_word = ""
-                            self.transcribing = True
-                            self.last_token_timestep = None
-                            
-                            # detokenize current sentence 
-                            response = self.llm.detokenize(self.response_sentence)
-                            
-                            # reset sentence and sequenc 
-                            self.response_sequence = []
-                            self.response_sentence = []
-                            response = "".join(response)
-
-                            # Sometimes the previous sentence was already the end of the sequence but the EOS
-                            # token is generated after the end of sentence token. If the sequence ends but the current
-                            # sentence is too short, nothing is returned and no speech is synthesized
-                            if len(response) > 3:
-                                # synthesize generated sequence
-                                wav = self.tts(response)
-
-                                # calculate and print latency
-                                latency = time.time()-self.start_generation_timestep
-                                print("## Total Latency: ", round(latency,3))
-                                self.start_generation_timestep = None
-
-                                return response, wav, False
-                            else:
-                                self.start_generation_timestep = None
+                    end, response, wav = self.handle_stop_conditions()
+                    if end:
+                        return response, wav, False
+              
                 else:
+
+                    ## Test: keep LLM "warm"
+                    #self.call_LLM(input=".", reason="warming_up", tokenize=True, ignore_output=True)
+
                     # --> not in generation mode handle new transcribed token 
-
-                    # skip if there was no full audio chunk in the buffer
-                    if processed_signal is None:
-                        self.last_return = time.time()
-                        return None, None, False
-
-                    if len(transcribed_text)>0:
-                        # reset timer for last recognized word / subword
-                        self.last_token_timestep = time.time()
-                        print(transcribed_text)
-
-                    # First STT run is very slow, show Start prompt afterwards and add format tokens to LLM
-                    if self.first:
-                        self.first = False
-                        print("\n\n ## Listening... ")
-
-                        # Add format token
-                        # TODO precompute this earlier
-                        tokens = self.llm.tokenize("\nInstruct:")
-                        for t in tokens[0]:
-                            t = torch.unsqueeze(torch.unsqueeze(t, 0),0)
-                            s = time.time()
-                            self.last_token, self.past_key_values = self.llm(t, self.past_key_values, len(self.response_sequence))
-                            if VERBOSE:
-                                print(" -LLM (Format): ", round(time.time()-s,3))
-
-                    if (len(transcribed_text) == 0 or transcribed_text.startswith(" ")) and len(self.current_word)>0:
-                        # --> new word
-                        new_word = self.current_word
-                        self.transcribed_words.append(new_word)
-                        self.current_word = transcribed_text
-                        self.counter = 0
-
-                        # call LLM to process new input token
-                        tokens = self.llm.tokenize(new_word)
-                        for t in tokens[0]:
-                            start_llm = time.time()
-                            t = torch.unsqueeze(torch.unsqueeze(t, 0),0)
-                            s=time.time()
-                            self.last_token, self.past_key_values = self.llm(t, self.past_key_values, len(self.response_sequence))
-                            if VERBOSE:
-                                print(" -LLM (Input): ", round(time.time()-s,3))
-                    
-                    # if new token is just a subword, add it to the current word
-                    else:
-                        self.current_word += transcribed_text
+                    if processed_signal is not None:
+                        self.handle_transcription(transcribed_text)
                 
                 # If generated sentence/sequence is not finished --> Return none
                 self.last_return = time.time()
