@@ -16,6 +16,7 @@ typing-extensions
 pyaudio
 phonemizer
 wget
+utils
 omegaconf
 pytorch_lightning
 git+https://github.com/resemble-ai/monotonic_align.git
