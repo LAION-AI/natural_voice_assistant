@@ -118,6 +118,11 @@ Inside the repository run:
 pip install -r requirements.txt
 ```
 
+On Ubuntu, you might install portaudio which is required by pyaudio. If you encounter any errors with pyaudio, try to run: 
+```
+sudo apt install portaudio19-dev
+```
+
 ### 5) Start your AI conversation
 - Start BUD-E by running the *main.py* file inside the repository:
 ```
