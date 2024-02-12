@@ -18,7 +18,7 @@ This project is a collaboration between LAION, the ELLIS Institute Tübingen, Co
 
 </p>
 
-[This demo](https://youtu.be/SYWDucn8RL8) shows an interaction with the current version of BUD-E on an NVIDIA GTX 4090. With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
+[This demo](https://youtu.be/SYWDucn8RL8) shows an interaction with the current version of BUD-E on an NVIDIA RTX 4090. With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
 
 ## Quick Start
 1. Clone this repository and follow the installation guide in the readme.
