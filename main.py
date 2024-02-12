@@ -3,26 +3,68 @@ import time
 import torch
 import pyaudio
 import librosa
+import argparse
 import numpy as np
 import multiprocessing
-import sounddevice as sd
 from utils_voice_assistant.preprocessor import Preprocessor
 from utils_voice_assistant.streaming_buffer import StreamBuffer
 from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
-def record(audio_buffer, start_recording):
+TARGET_SAMPLE_RATE = 16000
+
+def find_supported_audio_format(audio, device_index):
+    # Assuming the device supports a commonly used sample rate if not found explicitly.
+    supported_rates = [16000, 32000, 44100, 48000]
+    supported_channels = [1, 2]  # Mono and Stereo
+    found_rate = None
+    found_channels = None
+
+    for rate in supported_rates:
+        try:
+            if audio.is_format_supported(rate,
+                                         input_device=device_index,
+                                         input_channels=1,
+                                         input_format=pyaudio.paFloat32):
+                found_rate = rate
+                break
+        except ValueError:
+            pass
+
+    for channels in supported_channels:
+        try:
+            if audio.is_format_supported(rate,
+                                         input_device=device_index,
+                                         input_channels=channels,
+                                         input_format=pyaudio.paFloat32):
+                found_channels = channels
+                break
+        except ValueError:
+            pass
+
+    return found_rate, found_channels
+
+def list_pyaudio_devices(audio):
+    print("  Available pyaudio devices:")
+    for i in range(audio.get_device_count()):
+        dev = audio.get_device_info_by_index(i)
+        print((i,dev['name'],dev['maxInputChannels']))
+
+def record(audio_buffer, start_recording, input_device_index) :
     """Record an audio stream from the microphone in a separate process  
         Args:
             audio_buffer: multiprocessing queue to store the recorded audio data
             start_recording: multiprocessing value to start and stop the recording
     """
-    RATE = 44100
     CHUNK = 2048
 
-    # Open audio input stream
+    # get supported sample rate and number of channels for the given device
     audio = pyaudio.PyAudio()
-    streamIn = audio.open(format=pyaudio.paFloat32, channels=1,
-                            rate=RATE, input=True, input_device_index=0,
+    rate, channels = find_supported_audio_format(audio, input_device_index)
+
+    # Open audio input stream
+    
+    streamIn = audio.open(format=pyaudio.paFloat32, channels=channels,
+                            rate=rate, input=True, input_device_index=input_device_index,
                             frames_per_buffer=CHUNK)
     
     while(True):
@@ -46,6 +88,7 @@ def play_audio(audio_output_buffer):
         Args:
             audio_output_buffer: multiprocessing-queue to receive audio data
     """
+    import sounddevice as sd
     fs = 24000
     while(True):
         # get next audio data 
@@ -60,7 +103,7 @@ def flush():
   torch.cuda.empty_cache()
   torch.cuda.reset_peak_memory_stats()
 
-def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer,  start_recording):
+def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer,  start_recording, input_device_index):
     """Wait for audio input, call voice assistant model and play synthesized speech  
         Args:
             streaming_buffer: streaming buffer instance to store preprocessed audio chunks
@@ -79,6 +122,9 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
     # control buffer stream id for first chunk 
     first = True
 
+    # get sample rate of input device:
+    sample_rate,_ = find_supported_audio_format(pyaudio.PyAudio(), input_device_index)
+
     # start main loop
     while True:
 
@@ -95,15 +141,16 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
             # try to get the next audio chunk, if buffer is empty an exception is thrown 
             try:
                 # get audio data from buffer
+
                 data = audio_input_buffer.get(block=False)
                 
                 # resample audio data to target sample rate of STT model
                 t = np.frombuffer(data, dtype=np.float32)
-                t = librosa.core.resample(t, orig_sr=44100, target_sr=16000)
-                t = t.transpose()
+                if sample_rate != TARGET_SAMPLE_RATE:
+                    t = librosa.core.resample(t, orig_sr=sample_rate, target_sr=TARGET_SAMPLE_RATE)
+                    t = t.transpose()
                 t = torch.from_numpy(t)
                 t = torch.unsqueeze(t,0)
-
                 # preprocess audio data
                 length = torch.tensor([t.shape[1]], dtype=torch.float32)
                 processed_signal, _ = preprocessor(t, length)
@@ -147,12 +194,20 @@ def main_loop(streaming_buffer, model, audio_input_buffer, audio_output_buffer, 
 def main():
     """ Start processes for recording and audio output, initialize voice assist model and start main loop 
     """
-    # !! Make sure to start multiprocessing before using any pytorch tensors to prevent GPU memory problems !! 
 
+    # parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--audio-device-idx', type=int, default=0, help='Index of the audio device for recording')
+    args = parser.parse_args()
+
+    list_pyaudio_devices(pyaudio.PyAudio())
+    print(f"\nCurrently input device with id {args.audio_device_idx} is used for recording. To change the audio device, please use the --audio-device-idx parameter.\n")
+
+    # !! Make sure to start multiprocessing before using any pytorch tensors to prevent GPU memory problems !! 
     # start multiprocesses for sound input
     audio_buffer = multiprocessing.Queue() 
     start_recording = multiprocessing.Value('i', 0)
-    record_process = multiprocessing.Process(target=record, args=(audio_buffer,start_recording))
+    record_process = multiprocessing.Process(target=record, args=(audio_buffer,start_recording, args.audio_device_idx))
     record_process.start()
 
     # start multiprocesses for sound output
@@ -175,7 +230,7 @@ def main():
     model = STT_LLM_TTS(device=device)
 
     # start inference
-    main_loop(streaming_buffer, model, audio_buffer, audio_output_buffer,  start_recording)
+    main_loop(streaming_buffer, model, audio_buffer, audio_output_buffer,  start_recording, args.audio_device_idx)
    
 if __name__ == "__main__":
     main()
