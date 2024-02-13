@@ -6,20 +6,25 @@ import librosa
 import argparse
 import numpy as np
 import multiprocessing
+import sys
 from utils_voice_assistant.preprocessor import Preprocessor
 from utils_voice_assistant.streaming_buffer import StreamBuffer
 from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
 TARGET_SAMPLE_RATE = 16000
 
-def find_supported_audio_format(audio, device_index):
+def find_supported_audio_format(audio, device_index, verbose):
     # Assuming the device supports a commonly used sample rate if not found explicitly.
     supported_rates = [16000, 32000, 44100, 48000]
     supported_channels = [1, 2]  # Mono and Stereo
     found_rate = None
     found_channels = None
 
+    if verbose:
+        print(f"Checking for supported rates: {supported_rates}")
     for rate in supported_rates:
+        if verbose:
+            print(f"  {rate}")
         try:
             if audio.is_format_supported(rate,
                                          input_device=device_index,
@@ -29,10 +34,15 @@ def find_supported_audio_format(audio, device_index):
                 break
         except ValueError:
             pass
-
+    if verbose:
+        print(f"Rate selected: {found_rate}")
+        print('')
+        print(f"Checking for supported channel counts: {supported_channels}")
     for channels in supported_channels:
+        if verbose:
+            print(f"  {channels}")
         try:
-            if audio.is_format_supported(rate,
+            if audio.is_format_supported(found_rate,
                                          input_device=device_index,
                                          input_channels=channels,
                                          input_format=pyaudio.paFloat32):
@@ -40,7 +50,16 @@ def find_supported_audio_format(audio, device_index):
                 break
         except ValueError:
             pass
+    if verbose:
+        print(f"Channel count selected: {found_channels}")
+        print('')
 
+    if found_rate is None or found_channels is None:
+        print(f'Error: Audio device index [{device_index}]:')
+        print(f'  We were unable to find an accepted sample rate or channels.')
+        print(f'  rate found "{found_rate}". (Need {supported_rates})')
+        print(f'  channels found "{found_channels}". (Need {supported_channels})')
+        sys.exit(1)
     return found_rate, found_channels
 
 def list_pyaudio_devices(audio):
@@ -49,7 +68,7 @@ def list_pyaudio_devices(audio):
         dev = audio.get_device_info_by_index(i)
         print((i,dev['name'],dev['maxInputChannels']))
 
-def record(audio_buffer, start_recording, input_device_index) :
+def record(audio_buffer, start_recording, input_device_index, verbose) :
     """Record an audio stream from the microphone in a separate process  
         Args:
             audio_buffer: multiprocessing queue to store the recorded audio data
@@ -59,10 +78,16 @@ def record(audio_buffer, start_recording, input_device_index) :
 
     # get supported sample rate and number of channels for the given device
     audio = pyaudio.PyAudio()
-    rate, channels = find_supported_audio_format(audio, input_device_index)
+    rate, channels = find_supported_audio_format(audio, input_device_index, verbose)
 
     # Open audio input stream
-    
+    if verbose:
+        print(f"Attempting to use audio index {input_device_index}")
+        print(f'  rate: {rate}')
+        print(f'  ch: {channels}')
+        print(f'  fmt: {pyaudio.paFloat32}')
+        print(f'  idx: {input_device_index}')
+        print(f'  frames per buffer: {CHUNK}')
     streamIn = audio.open(format=pyaudio.paFloat32, channels=channels,
                             rate=rate, input=True, input_device_index=input_device_index,
                             frames_per_buffer=CHUNK)
@@ -198,6 +223,8 @@ def main():
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--audio-device-idx', type=int, default=0, help='Index of the audio device for recording')
+    parser.add_argument('--audio-details', action='store_true', help='Display audio device info verbosely')
+    parser.add_argument('--audio-debug', action='store_true', help='Run record() in main thread for debugging; this cannot be used for normal operation!')
     args = parser.parse_args()
 
     list_pyaudio_devices(pyaudio.PyAudio())
@@ -207,7 +234,13 @@ def main():
     # start multiprocesses for sound input
     audio_buffer = multiprocessing.Queue() 
     start_recording = multiprocessing.Value('i', 0)
-    record_process = multiprocessing.Process(target=record, args=(audio_buffer,start_recording, args.audio_device_idx))
+    if args.audio_debug:
+        print("WARNING: record() in debug mode. CTRL-C to quit.")
+        record(audio_buffer,start_recording, args.audio_device_idx, args.audio_details)
+        # We likely only got here if the audio device failed
+        print("Exiting early due to --audio-debug selected")
+        sys.exit()
+    record_process = multiprocessing.Process(target=record, args=(audio_buffer,start_recording, args.audio_device_idx, args.audio_details))
     record_process.start()
 
     # start multiprocesses for sound output
