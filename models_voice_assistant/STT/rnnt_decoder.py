@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This code is a modification from the original code published by NVIDIA CORPORATION under the Apache License.
+# The modification took place at 2024-02-13.  
+
+
 import torch
 import numpy as np
 from torch.nn import Module
