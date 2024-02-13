@@ -7,11 +7,24 @@ import argparse
 import numpy as np
 import multiprocessing
 import sys
+import signal
 from utils_voice_assistant.preprocessor import Preprocessor
 from utils_voice_assistant.streaming_buffer import StreamBuffer
 from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
 TARGET_SAMPLE_RATE = 16000
+
+def signal_handler(sig, frame):
+    print('Terminate alls processes')
+    # Gracefully terminate the play_audio_process and main_loop_process
+    play_audio_process.terminate()
+    main_loop_process.terminate()
+    # Wait for processes to terminate
+    play_audio_process.join()
+    main_loop_process.join()
+    # Clean up PyAudio
+    audio.terminate()
+    sys.exit(0)
 
 def find_supported_audio_format(audio, device_index, verbose):
     # Assuming the device supports a commonly used sample rate if not found explicitly.
@@ -230,6 +243,7 @@ def main():
     start_recording = multiprocessing.Value('i', 0)
 
     # Initialize PyAudio in the main thread for recording
+    global audio
     audio = pyaudio.PyAudio()
     # get supported sample rate and number of channels for the given device
     sample_rate, audio_channels = find_supported_audio_format(audio, args.audio_device_idx, args.audio_details)
@@ -241,16 +255,24 @@ def main():
 
     # Start other processes in a separate process
         
+    global play_audio_process, main_loop_process
     play_audio_process = multiprocessing.Process(target=play_audio, args=(audio_output_buffer,))
     play_audio_process.start()
         
     main_loop_process = multiprocessing.Process(target=main_loop, args=(device, audio_input_buffer, audio_output_buffer,  start_recording, sample_rate))
     main_loop_process.start()
 
-    record(audio, sample_rate, audio_channels, audio_input_buffer, start_recording, args.audio_device_idx, args.audio_details)
+    signal.signal(signal.SIGINT, signal_handler)
 
-    play_audio_process.join() 
-    main_loop_process.join()
+    try:
+        record(audio, sample_rate, audio_channels, audio_input_buffer, start_recording, args.audio_device_idx, args.audio_details)
+    finally:
+        # Make sure to clean up resources and terminate processes even if an error occurs
+        play_audio_process.terminate()
+        main_loop_process.terminate()
+        play_audio_process.join()
+        main_loop_process.join()
+        audio.terminate()
 
 if __name__ == "__main__":
     main()
