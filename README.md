@@ -18,7 +18,7 @@ This project is a collaboration between LAION, the ELLIS Institute Tübingen, Co
 
 </p>
 
-[This demo](https://youtu.be/SYWDucn8RL8) shows an interaction with the current version of BUD-E on an NVIDIA GTX 4090. With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
+[This demo](https://youtu.be/SYWDucn8RL8) shows an interaction with the current version of BUD-E on an NVIDIA RTX 4090. With this setup, the voice assistant answers with a latency of *300 to 500 milliseconds*.  
 
 ## Quick Start
 1. Clone this repository and follow the installation guide in the readme.
@@ -118,6 +118,11 @@ Inside the repository run:
 pip install -r requirements.txt
 ```
 
+On Ubuntu, you might install portaudio which is required by pyaudio. If you encounter any errors with pyaudio, try to run: 
+```
+sudo apt install portaudio19-dev
+```
+
 ### 5) Start your AI conversation
 - Start BUD-E by running the *main.py* file inside the repository:
 ```
@@ -125,9 +130,12 @@ python main.py
 ```
 - Wait until all checkpoints are downloaded and all models are initialized. When *"## Listening..."* is prompted to the console, you can start speaking.  
 
+- When starting the main.py a list of available audio devices is displayed in the terminal. By default the device with index 0 is used for recording. To select a specific audio device, you can use the *--audio-device-idx* argument and pass the device index you want to use. 
+
+
 
 ## Collaborating to Build the Future of Conversational AI
 
 The development of BUD-E is an ongoing process that requires the collective effort of a diverse community. We invite open-source developers, researchers, and enthusiasts to join us in refining BUD-E's individual modules and contributing to its growth. Together, we can create an AI voice assistants that engage with us in natural, intuitive, and empathetic conversations.
 
-If you're interested in contributing to this project, join our Discord community or reach out to us at education@laion.ai.
+If you're interested in contributing to this project, join our [Discord community](https://discord.com/invite/jJpvt6R8cp) or reach out to us at [bud-e@laion.ai](mailto:bud-e@laion.ai).
