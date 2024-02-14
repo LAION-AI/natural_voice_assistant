@@ -15,7 +15,7 @@ from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 TARGET_SAMPLE_RATE = 16000
 
 def signal_handler(sig, frame):
-    print('Terminate alls processes')
+    print('Terminate all processes')
     # Gracefully terminate the play_audio_process and main_loop_process
     play_audio_process.terminate()
     main_loop_process.terminate()
