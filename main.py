@@ -14,7 +14,10 @@ from models_voice_assistant.stt_llm_tts_model import STT_LLM_TTS
 
 TARGET_SAMPLE_RATE = 16000
 
-def signal_handler(sig, frame):
+def terminate(sig, frame):
+    """
+    Signal handler for keyboard interrupt to terminate all subprocesses
+    """
     print('Terminate all processes')
     # Gracefully terminate the play_audio_process and main_loop_process
     play_audio_process.terminate()
@@ -26,7 +29,16 @@ def signal_handler(sig, frame):
     audio.terminate()
     sys.exit(0)
 
-def find_supported_audio_format(audio, device_index, verbose):
+def find_supported_audio_format(audio, device_index, verbose=False):
+    """Find supported sample rate and number of channels for a given audio device  
+        Args:
+            audio: pyaudio instance
+            device_index: index of a found sounddevice listed in list_pyaudio_devices
+            verbose: if True, additional information about the audio device are printed to the console
+        Return:
+            A supported sample rate or None if no rate is supported
+            A supported number of channels or None if no number of channels is supported
+    """
     # Assuming the device supports a commonly used sample rate if not found explicitly.
     supported_rates = [16000, 32000, 44100, 48000]
     supported_channels = [1, 2]  # Mono and Stereo
@@ -35,6 +47,8 @@ def find_supported_audio_format(audio, device_index, verbose):
 
     if verbose:
         print(f"Checking for supported rates: {supported_rates}")
+    
+    # check different sample rates and choose the first that is compatible with the audio device
     for rate in supported_rates:
         try:
             if audio.is_format_supported(rate,
@@ -49,6 +63,8 @@ def find_supported_audio_format(audio, device_index, verbose):
         print(f"Rate selected: {found_rate}")
         print('')
         print(f"Checking for supported channel counts: {supported_channels}")
+
+    # Try number of channels (mono/stereo) and choose the first that is compatible with the audio device
     for channels in supported_channels:
         try:
             if audio.is_format_supported(found_rate,
@@ -72,6 +88,9 @@ def find_supported_audio_format(audio, device_index, verbose):
     return found_rate, found_channels
 
 def list_pyaudio_devices(audio):
+    """
+    Print our all available audio devices and their index
+    """
     print("  Available pyaudio devices:")
     for i in range(audio.get_device_count()):
         dev = audio.get_device_info_by_index(i)
@@ -242,6 +261,7 @@ def main():
     parser.add_argument('--audio-details', action='store_true', help='Display audio device info verbosely')
     args = parser.parse_args()
 
+    # List all available audio devices in the console
     list_pyaudio_devices(pyaudio.PyAudio())
     print(f"\nCurrently input device with id {args.audio_device_idx} is used for recording. To change the audio device, please use the --audio-device-idx parameter.\n")
 
@@ -261,16 +281,17 @@ def main():
     if device == 'cuda':
         flush()  # Flush GPU memory if necessary
 
-    # Start other processes in a separate process
-        
+    # Start subprocess for playing synthesized speech
     global play_audio_process, main_loop_process
     play_audio_process = multiprocessing.Process(target=play_audio, args=(audio_output_buffer,))
     play_audio_process.start()
         
+    # Start subprocess for inference 
     main_loop_process = multiprocessing.Process(target=main_loop, args=(device, audio_input_buffer, audio_output_buffer,  start_recording, sample_rate))
     main_loop_process.start()
-
-    signal.signal(signal.SIGINT, signal_handler)
+    
+    # Setup signal hander for keyboard interrupt
+    signal.signal(signal.SIGINT, terminate)
 
     try:
         record(audio, sample_rate, audio_channels, audio_input_buffer, start_recording, args.audio_device_idx, args.audio_details)

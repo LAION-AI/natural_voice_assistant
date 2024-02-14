@@ -130,6 +130,9 @@ python main.py
 ```
 - Wait until all checkpoints are downloaded and all models are initialized. When *"## Listening..."* is prompted to the console, you can start speaking.  
 
+- When starting the main.py a list of available audio devices is displayed in the terminal. By default the device with index 0 is used for recording. To select a specific audio device, you can use the *--audio-device-idx* argument and pass the device index you want to use. 
+
+
 
 ## Collaborating to Build the Future of Conversational AI
 
