@@ -102,7 +102,7 @@ def record(audio, rate, channels, audio_buffer, start_recording, input_device_in
             audio_buffer: multiprocessing queue to store the recorded audio data
             start_recording: multiprocessing value to start and stop the recording
     """
-    CHUNK = 2048
+    CHUNK = 1024
 
     # Open audio input stream
     if verbose:
@@ -194,9 +194,7 @@ def main_loop(device, audio_input_buffer, audio_output_buffer,  start_recording,
             # try to get the next audio chunk, if buffer is empty an exception is thrown 
             try:
                 # get audio data from buffer
-
                 data = audio_input_buffer.get(block=False)
-                
                 # resample audio data to target sample rate of STT model
                 t = np.frombuffer(data, dtype=np.float32)
                 if sample_rate != TARGET_SAMPLE_RATE:
