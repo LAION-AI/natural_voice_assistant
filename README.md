@@ -141,7 +141,7 @@ Below are the available command-line arguments for starting the assistant:
 |---------------|---------------------------------------|---------------|
 | `--audio-device-idx`| Select the audio device by index that should be used for recording.       | `0`           |
 | `--audio-details` | Show details for the selcted audio device like the sample rate or number of audio channels. | `false`       |
-| `--tts-model` | Select the model that should be used for text to speech. You can choose between `StyleTTS2` and `WhisperSpeech`. Please note that `WhisperSpeech` relies on `torch.compile` which is supported on windows. You can still use `WhisperSpeech` but the TTS inference will be very slow.| `StyleTTS2`       |
+| `--tts-model` | Select the model that should be used for text to speech. You can choose between `StyleTTS2` and `WhisperSpeech`. Please note that `WhisperSpeech` relies on `torch.compile` which is not supported on windows. You can still use `WhisperSpeech` on Windows but the TTS inference will be very slow.| `StyleTTS2`       |
 
 
 
