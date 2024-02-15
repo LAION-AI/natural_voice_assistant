@@ -4,6 +4,7 @@ import numpy as np
 from copy import deepcopy
 from utils_voice_assistant.nemo_loader import load_rnnt_model
 from models_voice_assistant.TTS.style_tts2_model import StyleTTS2Model
+from models_voice_assistant.TTS.whisper_speech_model import WhisperSpeechModel
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 VERBOSE = False
@@ -321,7 +322,7 @@ class LLM(torch.nn.Module):
         return next_tokens, past_key_values
 
 class TTS(torch.nn.Module):
-     def __init__(self, device="cuda"):
+     def __init__(self, device="cuda", tts_model="StyleTTS2"):
         """Initialize STT model and perform warm up steps
         Args: 
         Returns:
@@ -330,8 +331,12 @@ class TTS(torch.nn.Module):
         super(TTS, self).__init__()
 
         # init Style TTS model 
-        self.tts_model = StyleTTS2Model(device=device)
-        
+        if tts_model == "StyleTTS2":
+            self.tts_model = StyleTTS2Model(device=device)
+        elif tts_model == "WhisperSpeech":
+            self.tts_model = WhisperSpeechModel()
+        else:
+            raise Exception("Invalid name for tts model. Supported models are: \n -StyleTTS2\n -WhisperSpeech")
         # perform multiple inference steps for warmup
         for _ in range(3):
             start = time.time()
@@ -353,7 +358,7 @@ class STT_LLM_TTS(torch.nn.Module):
     
     THRESHOLD_VOICE_DETECTION  = -31000
     
-    def __init__(self, device):
+    def __init__(self, device, tts_model):
         """Initialize STT, LLM and TTS model and the state of the voice assistant 
         Args: 
         Returns:
@@ -368,7 +373,7 @@ class STT_LLM_TTS(torch.nn.Module):
         self.llm = LLM(model_name="microsoft/phi-2", device=device)
 
         # Init TTS model
-        self.tts = TTS(device=device)
+        self.tts = TTS(device=device, tts_model=tts_model)
 
         # Init voice assistant state
         self.transcribed_tokens = []

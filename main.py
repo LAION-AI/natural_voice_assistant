@@ -152,7 +152,7 @@ def flush():
   torch.cuda.empty_cache()
   torch.cuda.reset_peak_memory_stats()
 
-def main_loop(device, audio_input_buffer, audio_output_buffer,  start_recording, sample_rate):
+def main_loop(device, audio_input_buffer, audio_output_buffer,  start_recording, sample_rate, tts_model):
     """Wait for audio input, call voice assistant model and play synthesized speech  
         Args:
             streaming_buffer: streaming buffer instance to store preprocessed audio chunks
@@ -169,7 +169,7 @@ def main_loop(device, audio_input_buffer, audio_output_buffer,  start_recording,
     streaming_buffer_iter = iter(streaming_buffer)
 
     # Initialize speech-to-text, language model, text-to-speech (STT-LLM-TTS) pipeline
-    model = STT_LLM_TTS(device=device)
+    model = STT_LLM_TTS(device=device, tts_model = tts_model)
     
     # send signal to recording process to start the recording
     start_recording.value = 1
@@ -257,6 +257,7 @@ def main():
 
     # Parse arguments
     parser = argparse.ArgumentParser()
+    parser.add_argument('--tts-model', type=str, default="StyleTTS2", help='Model that should be used for text to speech')
     parser.add_argument('--audio-device-idx', type=int, default=0, help='Index of the audio device for recording')
     parser.add_argument('--audio-details', action='store_true', help='Display audio device info verbosely')
     args = parser.parse_args()
@@ -287,7 +288,7 @@ def main():
     play_audio_process.start()
         
     # Start subprocess for inference 
-    main_loop_process = multiprocessing.Process(target=main_loop, args=(device, audio_input_buffer, audio_output_buffer,  start_recording, sample_rate))
+    main_loop_process = multiprocessing.Process(target=main_loop, args=(device, audio_input_buffer, audio_output_buffer,  start_recording, sample_rate, args.tts_model))
     main_loop_process.start()
     
     # Setup signal hander for keyboard interrupt
