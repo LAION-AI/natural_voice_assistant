@@ -18,4 +18,5 @@ phonemizer
 wget
 omegaconf
 pytorch_lightning
+whisperspeech
 git+https://github.com/resemble-ai/monotonic_align.git
