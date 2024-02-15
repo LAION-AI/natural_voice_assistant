@@ -133,6 +133,16 @@ python main.py
 - When starting the main.py a list of available audio devices is displayed in the terminal. By default the device with index 0 is used for recording. To select a specific audio device, you can use the *--audio-device-idx* argument and pass the device index you want to use. 
 
 
+## Command-Line Arguments
+
+Below are the available command-line arguments for starting the assistant:
+
+| Argument      | Description                           | Default Value |
+|---------------|---------------------------------------|---------------|
+| `--audio-device-idx`| Select the audio device by index that should be used for recording.       | `0`           |
+| `--audio-details` | Show details for the selcted audio device like the sample rate or number of audio channels. | `false`       |
+
+
 
 ## Collaborating to Build the Future of Conversational AI
 
