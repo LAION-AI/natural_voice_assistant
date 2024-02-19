@@ -45,6 +45,13 @@ def find_supported_audio_format(audio, device_index, verbose=False):
     found_rate = None
     found_channels = None
 
+    if device_index is None:
+        default_device = audio.get_default_input_device_info()
+        device_index = default_device['index']
+        if verbose:
+            print(f"No audio device selected. Choosing default device.")
+        print(f"Default pyaudio device chosen. index:{device_index}, max channels:{default_device['maxInputChannels']}")
+
     if verbose:
         print(f"Checking for supported rates: {supported_rates}")
     
@@ -85,7 +92,7 @@ def find_supported_audio_format(audio, device_index, verbose=False):
         print(f'  rate found "{found_rate}". (Need {supported_rates})')
         print(f'  channels found "{found_channels}". (Need {supported_channels})')
         sys.exit(1)
-    return found_rate, found_channels
+    return device_index, found_rate, found_channels
 
 def list_pyaudio_devices(audio):
     """
@@ -256,13 +263,15 @@ def main():
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--tts-model', type=str, default="StyleTTS2", help='Model that should be used for text to speech')
-    parser.add_argument('--audio-device-idx', type=int, default=0, help='Index of the audio device for recording')
+    parser.add_argument('--audio-device-idx', type=int, help='Index of the audio device for recording')
     parser.add_argument('--audio-details', action='store_true', help='Display audio device info verbosely')
     args = parser.parse_args()
 
     # List all available audio devices in the console
     list_pyaudio_devices(pyaudio.PyAudio())
-    print(f"\nCurrently input device with id {args.audio_device_idx} is used for recording. To change the audio device, please use the --audio-device-idx parameter.\n")
+    audio_device_comment = ' (default)' if args.audio_device_idx is None else ''
+    print(f"\nCurrently input device with id {args.audio_device_idx}{audio_device_comment} is used for recording.")
+    print(" To change the audio device, please use the --audio-device-idx parameter.\n")
 
     # Start multiprocessing queues and values
     audio_input_buffer = multiprocessing.Queue()
@@ -273,7 +282,7 @@ def main():
     global audio
     audio = pyaudio.PyAudio()
     # get supported sample rate and number of channels for the given device
-    sample_rate, audio_channels = find_supported_audio_format(audio, args.audio_device_idx, args.audio_details)
+    audio_device_idx, sample_rate, audio_channels = find_supported_audio_format(audio, args.audio_device_idx, args.audio_details)
 
     # Determine processing device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -293,7 +302,7 @@ def main():
     signal.signal(signal.SIGINT, terminate)
 
     try:
-        record(audio, sample_rate, audio_channels, audio_input_buffer, start_recording, args.audio_device_idx, args.audio_details)
+        record(audio, sample_rate, audio_channels, audio_input_buffer, start_recording, audio_device_idx, args.audio_details)
     finally:
         # Make sure to clean up resources and terminate processes even if an error occurs
         play_audio_process.terminate()

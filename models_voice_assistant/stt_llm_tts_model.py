@@ -6,7 +6,7 @@ from utils_voice_assistant.nemo_loader import load_rnnt_model
 from models_voice_assistant.TTS.style_tts2_model import StyleTTS2Model
 from models_voice_assistant.TTS.whisper_speech_model import WhisperSpeechModel
 from transformers import AutoTokenizer, AutoModelForCausalLM
-
+import os
 import json
 
 VERBOSE = False
@@ -557,6 +557,8 @@ class STT_LLM_TTS(torch.nn.Module):
                 # calculate and print latency
                 latency = time.time()-self.start_generation_timestep
                 print("## Total Latency: ", round(latency,3))
+
+                if not os.path.exists('latencies'): os.mkdir('latencies')
 
                 # Save recorded latencies for files for speed evaluation
                 with open('latencies/times_stt', 'w') as fout:
