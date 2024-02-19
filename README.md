@@ -139,10 +139,18 @@ Below are the available command-line arguments for starting the assistant:
 
 | Argument      | Description                           | Default Value |
 |---------------|---------------------------------------|---------------|
-| `--audio-device-idx`| Select the audio device by index that should be used for recording.       | `0`           |
+| `--audio-device-idx`| Select the audio device by index that should be used for recording. If no device idex is selected, the default audio device will be used.      | `None`           |
 | `--audio-details` | Show details for the selcted audio device like the sample rate or number of audio channels. | `false`       |
 | `--tts-model` | Select the model that should be used for text to speech. You can choose between `StyleTTS2` and `WhisperSpeech`. Please note that `WhisperSpeech` relies on `torch.compile` which is not supported on windows. You can still use `WhisperSpeech` on Windows but the TTS inference will be very slow.| `StyleTTS2`       |
 
+
+## Troubleshooting 
+
+##### OSError: [Errno -9999] Unanticipated host error
+This error could occur, if access to your audio device is denied. Please check your local settings and allow desktop aps to access the microphone. 
+
+##### OSError "invalid samplerate" or "invalid number of channels"
+These are pyaudio related issues that occur if the selected audio device does not support the current sample rate or number of channels. Sample rate and channels are selected automatically regarding the current audio-device index that is used. If you encounter any problems related to pyaudio, use the --audio-device-idx argument and try a difference device id. A list of all available audio-devices is printed when executng main.py. 
 
 
 ## Collaborating to Build the Future of Conversational AI
