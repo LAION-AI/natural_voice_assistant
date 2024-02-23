@@ -402,6 +402,10 @@ class STT_LLM_TTS(torch.nn.Module):
         self.times_interrupt = []
         self.times_tts = []
 
+        # System Prompt 
+        self.call_LLM(input="Your name is BUD-E. You are a friendly Ai Assistant that will answer every question correctly and in a friendly way.", reason="format", tokenize=True)
+
+
     def call_LLM(self, input, reason, tokenize=True, ignore_output=False):
         """
         Pass the given input to the LLM to either generate a new output or just update the key value cache
@@ -490,7 +494,7 @@ class STT_LLM_TTS(torch.nn.Module):
             print("\n\n ## Listening... ")
 
             # Add format token
-            self.call_LLM(input="\nInstruct:", reason="format", tokenize=True)
+            self.call_LLM(input="\nHuman:", reason="format", tokenize=True)
 
         if (len(transcribed_text) == 0 or transcribed_text.startswith(" ")) and len(self.current_word)>0:
             # --> new word
@@ -686,7 +690,7 @@ class STT_LLM_TTS(torch.nn.Module):
                         
                         # Add format tokens 
                         # TODO calculate key value cache earlier and use it here to save inference time
-                        self.call_LLM(input="\nOutput:", reason="format", tokenize=True)
+                        self.call_LLM(input="\nAI:", reason="format", tokenize=True)
                         self.response_sequence.append(self.last_token)
                         self.response_sentence.append(self.last_token)
 
