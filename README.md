@@ -147,10 +147,10 @@ Below are the available command-line arguments for starting the assistant:
 ## Troubleshooting 
 
 ##### OSError: [Errno -9999] Unanticipated host error
-This error could occur, if access to your audio device is denied. Please check your local settings and allow desktop aps to access the microphone. 
+This error could occur, if access to your audio device is denied. Please check your local settings and allow desktop apps to access the microphone. 
 
 ##### OSError "invalid samplerate" or "invalid number of channels"
-These are pyaudio related issues that occur if the selected audio device does not support the current sample rate or number of channels. Sample rate and channels are selected automatically regarding the current audio-device index that is used. If you encounter any problems related to pyaudio, use the --audio-device-idx argument and try a difference device id. A list of all available audio-devices is printed when executng main.py. 
+These are pyaudio related issues that occur if the selected audio device does not support the current sample rate or number of channels. Sample rate and channels are selected automatically regarding the current audio-device index that is used. If you encounter any problems related to pyaudio, use the --audio-device-idx argument and try a different device id. A list of all available audio-devices is printed when executing main.py. 
 
 
 ## Collaborating to Build the Future of Conversational AI
