@@ -92,7 +92,7 @@ conda activate bud_e
 
 Next, clone this repository. Make sure to pass the *-recurse-submodules* argument to clone the required submodules as well.
 ```
-git clone --recurse-submodules https://github.com/brendel-group/natural_voice_assistant
+git clone --recurse-submodules https://github.com/LAION-AI/natural_voice_assistant.git
 ```
 
 ### 2) Install espeak-ng
